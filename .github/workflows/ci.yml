@@ -1,0 +1,295 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run daily at 2 AM UTC to catch performance regressions
+    - cron: '0 2 * * *'
+
+env:
+  GO_VERSION: '1.24.3'
+  BENCHMARK_THRESHOLD_NS: 150000  # 150μs threshold for most benchmarks
+  MEMORY_THRESHOLD_MB: 50         # 50MB memory threshold
+  COVERAGE_THRESHOLD: 80          # 80% coverage threshold
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.23', '1.24.3']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+        cache: true
+        
+    - name: Install dependencies
+      run: make deps
+      
+    - name: Run linter
+      run: make lint
+      
+    - name: Run tests
+      run: make test
+      
+    - name: Run tests with race detection
+      run: make test-race
+      
+    - name: Run tests with coverage
+      run: make coverage
+      
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.out
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  performance:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+        
+    - name: Install dependencies
+      run: make deps
+      
+    - name: Run performance benchmarks
+      run: |
+        echo "Running performance benchmarks..."
+        go test -bench=. -benchmem -count=5 > benchmark_results.txt
+        
+    - name: Parse benchmark results
+      run: |
+        echo "Parsing benchmark results..."
+        go run scripts/parse_benchmarks.go benchmark_results.txt > benchmark_summary.json
+        
+    - name: Check performance thresholds
+      run: |
+        echo "Checking performance thresholds..."
+        go run scripts/check_thresholds.go benchmark_summary.json ${{ env.BENCHMARK_THRESHOLD_NS }}
+        
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-results
+        path: |
+          benchmark_results.txt
+          benchmark_summary.json
+
+  memory:
+    name: Memory Benchmarks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+        
+    - name: Install dependencies
+      run: make deps
+      
+    - name: Run memory benchmarks
+      run: |
+        echo "Running memory benchmarks..."
+        go test -bench=. -benchmem -memprofile=mem.prof -count=3
+        
+    - name: Analyze memory usage
+      run: |
+        echo "Analyzing memory usage..."
+        go tool pprof -text -alloc_space mem.prof > memory_analysis.txt
+        go tool pprof -top -alloc_space mem.prof > memory_top.txt
+        
+    - name: Check memory thresholds
+      run: |
+        echo "Checking memory thresholds..."
+        go run scripts/check_memory.go memory_analysis.txt ${{ env.MEMORY_THRESHOLD_MB }}
+        
+    - name: Upload memory results
+      uses: actions/upload-artifact@v4
+      with:
+        name: memory-results
+        path: |
+          mem.prof
+          memory_analysis.txt
+          memory_top.txt
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+        
+    - name: Install gosec
+      run: go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+      
+    - name: Run security scan
+      run: make security
+      
+    - name: Run govulncheck
+      run: |
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+        govulncheck ./...
+
+  build:
+    name: Build and Test Examples
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+        
+    - name: Install dependencies
+      run: make deps
+      
+    - name: Build project
+      run: make build
+      
+    - name: Test examples
+      run: make examples
+      
+    - name: Build for multiple platforms
+      run: |
+        GOOS=linux GOARCH=amd64 make build-linux
+        GOOS=windows GOARCH=amd64 go build -o concurrent.exe .
+        GOOS=darwin GOARCH=amd64 go build -o concurrent-darwin .
+
+  regression:
+    name: Performance Regression Detection
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'push'
+    needs: [test, performance, memory]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+        
+    - name: Download previous benchmark results
+      uses: actions/download-artifact@v4
+      with:
+        name: benchmark-results
+        path: ./previous-results/
+        
+    - name: Run current benchmarks
+      run: |
+        go test -bench=. -benchmem -count=5 > current_benchmark_results.txt
+        
+    - name: Compare performance
+      run: |
+        echo "Comparing performance with previous results..."
+        go run scripts/compare_benchmarks.go previous-results/benchmark_results.txt current_benchmark_results.txt
+        
+    - name: Generate performance report
+      run: |
+        echo "Generating performance report..."
+        go run scripts/generate_report.go current_benchmark_results.txt > performance_report.md
+        
+    - name: Upload performance report
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-report
+        path: performance_report.md
+
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: [test, performance, memory, security, build]
+    if: always()
+    
+    steps:
+    - name: Check test results
+      run: |
+        if [ "${{ needs.test.result }}" != "success" ]; then
+          echo "❌ Tests failed"
+          exit 1
+        fi
+        echo "✅ Tests passed"
+        
+    - name: Check performance results
+      run: |
+        if [ "${{ needs.performance.result }}" != "success" ]; then
+          echo "❌ Performance benchmarks failed"
+          exit 1
+        fi
+        echo "✅ Performance benchmarks passed"
+        
+    - name: Check memory results
+      run: |
+        if [ "${{ needs.memory.result }}" != "success" ]; then
+          echo "❌ Memory benchmarks failed"
+          exit 1
+        fi
+        echo "✅ Memory benchmarks passed"
+        
+    - name: Check security results
+      run: |
+        if [ "${{ needs.security.result }}" != "success" ]; then
+          echo "❌ Security scan failed"
+          exit 1
+        fi
+        echo "✅ Security scan passed"
+        
+    - name: Check build results
+      run: |
+        if [ "${{ needs.build.result }}" != "success" ]; then
+          echo "❌ Build failed"
+          exit 1
+        fi
+        echo "✅ Build passed"
+        
+    - name: Quality Gate Summary
+      run: |
+        echo "🎉 All quality gates passed!"
+        echo "✅ Tests: ${{ needs.test.result }}"
+        echo "✅ Performance: ${{ needs.performance.result }}"
+        echo "✅ Memory: ${{ needs.memory.result }}"
+        echo "✅ Security: ${{ needs.security.result }}"
+        echo "✅ Build: ${{ needs.build.result }}"
