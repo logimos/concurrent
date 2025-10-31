@@ -22,3 +22,9 @@ performance_report.csv
 performance_report.jsonl
 performance_report.jsonl.gz
 performance_report.jsonl.gz.part
+
+# MkDocs
+site/
+.cache/
+*.pyc
+__pycache__/
