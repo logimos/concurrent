@@ -101,7 +101,7 @@ examples:
 	@echo "\nRunning mapreduce example..."
 	$(GOCMD) run examples/mapreduce/main.go
 	@echo "\nRunning pipeline example..."
-	$(GOCMD) run examples/pipeline.go
+	$(GOCMD) run examples/pipeline/main.go
 
 # Run specific example
 .PHONY: example-pool
@@ -114,7 +114,7 @@ example-mapreduce:
 
 .PHONY: example-pipeline
 example-pipeline:
-	$(GOCMD) run examples/pipeline.go
+	$(GOCMD) run examples/pipeline/main.go
 
 # Development workflow
 .PHONY: dev
