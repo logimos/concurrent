@@ -386,11 +386,12 @@ func TestTee(t *testing.T) {
 
 func TestMerge(t *testing.T) {
 	t.Run("basic merge", func(t *testing.T) {
+		ctx := context.Background()
 		input1 := make(chan int)
 		input2 := make(chan int)
 		input3 := make(chan int)
 
-		output := Merge(input1, input2, input3)
+		output := Merge(ctx, input1, input2, input3)
 
 		go func() {
 			input1 <- 1
@@ -412,7 +413,8 @@ func TestMerge(t *testing.T) {
 	})
 
 	t.Run("empty inputs", func(t *testing.T) {
-		output := Merge[int]()
+		ctx := context.Background()
+		output := Merge[int](ctx)
 
 		// Should close immediately
 		select {

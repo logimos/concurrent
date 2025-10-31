@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"sync"
 	"time"
 )
 
@@ -164,7 +165,7 @@ type CircuitBreaker struct {
 	state            CircuitState
 	failureCount     int
 	lastFailureTime  time.Time
-	mu               chan struct{} // Mutex using channel
+	mu               sync.Mutex
 }
 
 // CircuitState represents the state of the circuit breaker.
@@ -182,34 +183,38 @@ func NewCircuitBreaker(failureThreshold int, resetTimeout time.Duration) *Circui
 		failureThreshold: failureThreshold,
 		resetTimeout:     resetTimeout,
 		state:            StateClosed,
-		mu:               make(chan struct{}, 1),
 	}
 }
 
 // Execute executes a function through the circuit breaker.
 func (cb *CircuitBreaker) Execute(ctx context.Context, fn func() error) error {
-	// Acquire lock
+	// Check context cancellation before acquiring lock
 	select {
-	case cb.mu <- struct{}{}:
-		defer func() { <-cb.mu }()
 	case <-ctx.Done():
 		return ctx.Err()
+	default:
 	}
 
+	cb.mu.Lock()
 	// Check circuit state
 	switch cb.state {
 	case StateOpen:
 		if time.Since(cb.lastFailureTime) >= cb.resetTimeout {
 			cb.state = StateHalfOpen
 		} else {
+			cb.mu.Unlock()
 			return errors.New("circuit breaker is open")
 		}
 	case StateHalfOpen:
 		// Allow one request to test if service is back
 	}
+	cb.mu.Unlock()
 
-	// Execute function
+	// Execute function outside lock to avoid blocking other operations
 	err := fn()
+
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
 
 	if err != nil {
 		cb.failureCount++
@@ -229,10 +234,7 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, fn func() error) error {
 
 // State returns the current state of the circuit breaker.
 func (cb *CircuitBreaker) State() CircuitState {
-	select {
-	case cb.mu <- struct{}{}:
-		defer func() { <-cb.mu }()
-	default:
-	}
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
 	return cb.state
 }

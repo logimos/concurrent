@@ -10,7 +10,7 @@ on:
     - cron: '0 2 * * *'
 
 env:
-  GO_VERSION: '1.24.3'
+  GO_VERSION: '1.23'
   BENCHMARK_THRESHOLD_NS: 150000  # 150μs threshold for most benchmarks
   MEMORY_THRESHOLD_MB: 50         # 50MB memory threshold
   COVERAGE_THRESHOLD: 80          # 80% coverage threshold
@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.23', '1.24.3']
+        go-version: ['1.22', '1.23']
     
     steps:
     - name: Checkout code

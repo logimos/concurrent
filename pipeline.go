@@ -219,6 +219,8 @@ func Unbatch[T any]() Stage[[]T, T] {
 }
 
 // Tee creates a stage that splits the input into multiple outputs.
+// Note: Tee closes the provided output channels when the input channel closes.
+// Do not reuse these channels after passing them to Tee.
 func Tee[T any](outputs ...chan<- T) Stage[T, T] {
 	return func(ctx context.Context, input <-chan T) <-chan T {
 		output := make(chan T)
@@ -270,7 +272,8 @@ func Tee[T any](outputs ...chan<- T) Stage[T, T] {
 }
 
 // Merge creates a stage that merges multiple inputs into one output.
-func Merge[T any](inputs ...<-chan T) <-chan T {
+// The output channel is closed when all input channels are closed or context is cancelled.
+func Merge[T any](ctx context.Context, inputs ...<-chan T) <-chan T {
 	output := make(chan T)
 	var wg sync.WaitGroup
 
@@ -280,11 +283,15 @@ func Merge[T any](inputs ...<-chan T) <-chan T {
 			defer wg.Done()
 			for {
 				select {
+				case <-ctx.Done():
+					return
 				case item, ok := <-ch:
 					if !ok {
 						return
 					}
 					select {
+					case <-ctx.Done():
+						return
 					case output <- item:
 					}
 				}

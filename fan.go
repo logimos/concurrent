@@ -169,6 +169,6 @@ func RoundRobin[T any, R any](ctx context.Context, input <-chan T, workers int, 
 		}
 	}()
 
-	// Merge all worker outputs
+	// Merge all worker outputs using pipeline Merge
 	return FanIn(ctx, workerOutputs...)
 }

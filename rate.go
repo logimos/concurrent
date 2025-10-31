@@ -52,7 +52,13 @@ func (rl *RateLimiter) Allow() bool {
 }
 
 // Wait blocks until an operation is allowed under the rate limit.
+// Note: Refill() must be called periodically (e.g., via a background goroutine)
+// for tokens to be replenished. Use RateLimit() function for automatic refill.
+// This method does not automatically refill tokens - use RateLimit() for that.
 func (rl *RateLimiter) Wait(ctx context.Context) error {
+	// Try refill once before waiting
+	rl.Refill()
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
