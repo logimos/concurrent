@@ -155,7 +155,7 @@ jobs:
         cache: true
         
     - name: Install gosec
-      run: go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+      run: go install github.com/securego/gosec/v2/cmd/gosec@latest
       
     - name: Run security scan
       run: make security
@@ -191,8 +191,8 @@ jobs:
     - name: Build for multiple platforms
       run: |
         GOOS=linux GOARCH=amd64 make build-linux
-        GOOS=windows GOARCH=amd64 go build -o concurrent.exe .
-        GOOS=darwin GOARCH=amd64 go build -o concurrent-darwin .
+        GOOS=windows GOARCH=amd64 go build ./...
+        GOOS=darwin GOARCH=amd64 go build ./...
 
   regression:
     name: Performance Regression Detection

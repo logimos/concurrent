@@ -23,15 +23,15 @@ COVERAGE_HTML=coverage.html
 .PHONY: all
 all: clean deps test build
 
-# Build the project
+# Build the project (verify compilation)
 .PHONY: build
 build:
-	$(GOBUILD) -o $(BINARY_NAME) -v ./...
+	$(GOBUILD) -v ./...
 
-# Build for Linux
+# Build for Linux (verify compilation)
 .PHONY: build-linux
 build-linux:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BINARY_UNIX) -v
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -v ./...
 
 # Clean build artifacts
 .PHONY: clean
@@ -144,7 +144,7 @@ security:
 	@if command -v gosec >/dev/null 2>&1; then \
 		gosec ./...; \
 	else \
-		echo "gosec not installed. Install with: go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest"; \
+		echo "gosec not installed. Install with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; \
 	fi
 
 # Generate mocks (if using mockgen)
