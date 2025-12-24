@@ -3,8 +3,20 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ main, develop ]
+    paths-ignore:
+      - 'mkdocs.yml'
+      - 'requirements.txt'
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+      - 'README.md'
   pull_request:
     branches: [ main, develop ]
+    paths-ignore:
+      - 'mkdocs.yml'
+      - 'requirements.txt'
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+      - 'README.md'
   schedule:
     # Run daily at 2 AM UTC to catch performance regressions
     - cron: '0 2 * * *'

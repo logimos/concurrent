@@ -9,3 +9,6 @@ Tiny, practical Go concurrency helpers:
 
 ```bash
 go get github.com/logimos/concurrent
+```
+
+Documwntation can be found [here](https://logimos.github.io/concurrent/)
