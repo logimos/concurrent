@@ -13,9 +13,3 @@ go get github.com/logimos/concurrent
 
 Documwntation can be found [here](https://logimos.github.io/concurrent/)
 
- Configure GitHub Pages (one-time setup):
-     └─ Go to: https://github.com/logimos/concurrent/settings/pages
-     └─ Source: Deploy from a branch
-     └─ Branch: gh-pages
-     └─ Folder: / (root)
-     └─ Click Save

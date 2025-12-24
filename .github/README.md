@@ -2,6 +2,8 @@
 
 This directory contains the CI/CD pipeline configuration for the concurrent library.
 
+Documwntation can be found [here](https://logimos.github.io/concurrent/)
+
 ## Workflow Overview
 
 The CI pipeline includes the following jobs:
